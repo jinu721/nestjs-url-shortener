@@ -10,4 +10,11 @@ export const HttpResponse = {
   LOGIN_SUCCESS: 'Login successful.',
   USER_NOT_FOUND: 'User not found.',
   AUTH_SUCCESS: 'User authenticated successfully.',
+  URL_CREATED: 'URL created successfully.',
+  URL_FETCHED: 'URL fetched successfully.',
+  URL_UPDATED: 'URL updated successfully.',
+  URL_DELETED: 'URL deleted successfully.',
+  URL_FOUND: 'URL found successfully.',
+  URL_NOT_FOUND: 'URL not found.',
+  URL_HISTORY_FOUND: 'URL history fetched successfully.',
 };

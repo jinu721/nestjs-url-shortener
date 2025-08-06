@@ -8,6 +8,9 @@ export class Url extends Document {
   @Prop({ required: true })
   originalUrl: string;
 
+  @Prop({ required: true })
+  shortUrl: string;
+
   @Prop({ required: true, unique: true })
   shortCode: string;
 
