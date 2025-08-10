@@ -8,7 +8,6 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { OtpUtil } from 'src/common/utils/otp.util';
 import { EmailUtil } from 'src/common/utils/mail.util';
 import { JwtUtil } from 'src/common/utils/jwt.util';
-import { CookieUtil } from 'src/common/utils/cookie.util';
 import type { Cache } from 'cache-manager';
 import { LoginDto } from '../dtos/login.dto';
 
@@ -25,6 +24,7 @@ export class UserService implements IUserService {
     const user = await this.userRepository.getUserByEmail(email);
 
     if (user) {
+      console.log('user already exist');
       throw new HttpException(
         HttpResponse.USER_ALREADY_EXIST,
         HttpStatus.CONFLICT,
@@ -40,7 +40,7 @@ export class UserService implements IUserService {
     const saveData = {
       username,
       email,
-      password:hashedPassword,
+      password: hashedPassword,
       otp,
     };
 
@@ -55,6 +55,7 @@ export class UserService implements IUserService {
     const user = await this.userRepository.getUserByEmail(email);
 
     if (!user) {
+      console.log('user not found');
       throw new HttpException(
         HttpResponse.USER_NOT_FOUND,
         HttpStatus.NOT_FOUND,
@@ -67,9 +68,10 @@ export class UserService implements IUserService {
     );
 
     if (!isPasswordValid) {
+      console.log('invalid credentials');
       throw new HttpException(
         HttpResponse.INVALID_CREDENTIALS,
-        HttpStatus.UNAUTHORIZED,
+        HttpStatus.BAD_REQUEST,
       );
     }
 
@@ -79,8 +81,12 @@ export class UserService implements IUserService {
       email: user.email,
     };
 
+    console.log('payload', payload);
+
     const accessToken = JwtUtil.generateAccessToken(payload);
     const refreshToken = JwtUtil.generateRefreshToken(payload);
+
+    console.log('accessToken', accessToken, 'refreshToken', refreshToken);
 
     return {
       accessToken,
@@ -96,6 +102,8 @@ export class UserService implements IUserService {
       password: string;
     };
 
+    console.log('userData', userData);
+
     if (!userData) {
       throw new HttpException(HttpResponse.INVALID_OTP, HttpStatus.BAD_REQUEST);
     }
@@ -107,11 +115,11 @@ export class UserService implements IUserService {
     const saveData = {
       username: userData.username,
       email: userData.email,
-      password: userData.password
+      password: userData.password,
     };
 
     await this.cacheManager.del(email);
-    await this.userRepository.createUser(saveData)
+    await this.userRepository.createUser(saveData);
   }
   async resendOtp(email: string): Promise<void> {
     const userData = await this.cacheManager.get(email);

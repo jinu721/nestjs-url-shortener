@@ -16,6 +16,9 @@ export class Url extends Document {
 
   @Prop({ required: true })
   userId: string;
+
+  @Prop({ default: 0 })
+  clicks: number;
 }
 
 export const UrlSchema = SchemaFactory.createForClass(Url);

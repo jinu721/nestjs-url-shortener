@@ -12,5 +12,9 @@ export interface IUrlRepository {
     userId: string,
     page: number,
     limit: number,
+    search?: string,
   ): Promise<{ data: Url[]; total: number }>;
+  incrementClickCount(urlId: string): Promise<void>;
+  getTotalClickCount(userId: string): Promise<number>;
+  getTotalUrlCount(userId: string): Promise<number>;
 }

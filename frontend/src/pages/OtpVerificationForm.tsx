@@ -2,22 +2,19 @@ import React, { useState, useEffect } from "react";
 import { Lock } from "lucide-react";
 import Input from "../components/Input";
 import Button from "../components/Button";
+import { UserService } from "../services/user.service";
+import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 
-interface OtpVerificationProps {
-  email: string;
-  onOtpVerified: () => void;
-  onResendOtp: () => void;
-}
-
-const OtpVerificationForm: React.FC<OtpVerificationProps> = ({
-  email,
-  onOtpVerified,
-  onResendOtp,
-}) => {
+const OtpVerificationForm: React.FC = () => {
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resendTimer, setResendTimer] = useState(60);
+  const [resendTimer, setResendTimer] = useState(2);
+
+  const email = localStorage.getItem("email");
+
+  const router = useNavigate();
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -43,9 +40,14 @@ const OtpVerificationForm: React.FC<OtpVerificationProps> = ({
     setError("");
 
     try {
-      await new Promise((res) => setTimeout(res, 1000)); // Fake API call
-      onOtpVerified(); // Success
-    } catch (err) {
+      if(!email) {
+        throw new Error("Email not found");
+      }
+      await UserService.verifyOtp(email, otp);
+      toast.success("OTP verified successfully");
+      router("/auth/login");
+    } catch (error) {
+      console.log(error);
       setError("Invalid OTP. Please try again.");
     } finally {
       setLoading(false);
@@ -56,7 +58,14 @@ const OtpVerificationForm: React.FC<OtpVerificationProps> = ({
     setResendTimer(60);
     setOtp("");
     setError("");
-    onResendOtp();
+
+    try {
+      await UserService.resendOtp({email});
+      toast.success("OTP sent to your email");
+    } catch (error) {
+      console.log(error);
+      setError("Failed to send OTP. Please try again.");
+    }
   };
 
   return (

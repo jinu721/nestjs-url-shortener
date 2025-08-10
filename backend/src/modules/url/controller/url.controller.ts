@@ -17,7 +17,7 @@ import { IUrlController } from '../interfaces/url.controller.interface';
 import { successResponse } from 'src/common/utils/response.util';
 import { HttpResponse } from 'src/common/constants/response-msg.constants';
 
-@Controller('url')
+@Controller()
 export class UrlController implements IUrlController {
   constructor(private readonly urlService: UrlService) {}
 
@@ -30,7 +30,7 @@ export class UrlController implements IUrlController {
   ): Promise<void> {
     const user = req['user'];
     const url = await this.urlService.createShortUrl(dto, user.userId);
-    successResponse(res, HttpStatus.OK, HttpResponse.URL_CREATED,{url});
+    successResponse(res, HttpStatus.OK, HttpResponse.URL_CREATED, { url });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -41,23 +41,30 @@ export class UrlController implements IUrlController {
     successResponse(res, HttpStatus.OK, HttpResponse.URL_FOUND);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('history')
+  async getHistory(@Req() req: Request, @Res() res: Response): Promise<void> {
+    console.log('HISTORY');
+    const user = req['user'];
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = (req.query.search as string) || '';
+
+    const data = await this.urlService.getUserUrlHistory(
+      user.userId,
+      page,
+      limit,
+      search,
+    );
+    successResponse(res, HttpStatus.OK, HttpResponse.URL_HISTORY_FOUND, data);
+  }
+
   @Get(':shortCode')
   async getOriginal(
     @Param('shortCode') code: string,
     @Res() res: Response,
   ): Promise<void> {
     const originalUrl = await this.urlService.getOriginalUrl(code);
-    successResponse(res, HttpStatus.OK, HttpResponse.URL_FOUND,{originalUrl});
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('history')
-  async getHistory(@Req() req: Request, @Res() res: Response): Promise<void> {
-    const user = req['user'];
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-
-    await this.urlService.getUserUrlHistory(user.userId, page, limit);
-    successResponse(res, HttpStatus.OK, HttpResponse.URL_HISTORY_FOUND);
+    res.redirect(originalUrl);
   }
 }

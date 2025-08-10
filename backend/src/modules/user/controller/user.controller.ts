@@ -1,6 +1,6 @@
-import { Body, Controller, HttpStatus, Post, Res } from '@nestjs/common';
+import { Body, Controller, HttpStatus, Post, Req, Res } from '@nestjs/common';
 import { IUserController } from '../interfaces/user.controller.interface';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { RegisterDTO } from '../dtos/register.dto';
 import { UserService } from '../service/user.service';
 import { successResponse } from 'src/common/utils/response.util';
@@ -8,12 +8,14 @@ import { HttpResponse } from 'src/common/constants/response-msg.constants';
 import { VerifyOtpDto } from '../dtos/verify-otp.dto';
 import { ResendOtpDto } from '../dtos/reset-otp.dto';
 import { CookieUtil } from 'src/common/utils/cookie.util';
+import { LoginDto } from '../dtos/login.dto';
+import { JwtUtil } from 'src/common/utils/jwt.util';
 
 @Controller('users')
 export class UserController implements IUserController {
   constructor(private readonly userService: UserService) {}
 
-  @Post('/register')
+  @Post('register')
   async register(
     @Body() body: RegisterDTO,
     @Res() res: Response,
@@ -23,9 +25,10 @@ export class UserController implements IUserController {
   }
 
   @Post('login')
-  async login(@Body() body: any, @Res() res: Response): Promise<void> {
+  async login(@Body() body: LoginDto, @Res() res: Response): Promise<void> {
     const { accessToken, refreshToken } = await this.userService.login(body);
     CookieUtil.setRefreshToken(res, refreshToken);
+    console.log('Access', accessToken, 'refresh', refreshToken);
     successResponse(res, HttpStatus.OK, HttpResponse.LOGIN_SUCCESS, {
       accessToken,
     });
@@ -49,8 +52,34 @@ export class UserController implements IUserController {
     successResponse(res, HttpStatus.OK, HttpResponse.OTP_RESENT);
   }
 
-  // @Post('logout')
-  // async logout(@Res() res: Response): Promise<void> {
-  //   successResponse(res, HttpStatus.OK, HttpResponse.AUTH_SUCCESS);
-  // }
+  @Post('logout')
+  logout(@Res() res: Response): void {
+    CookieUtil.removeRefreshToken(res);
+    successResponse(res, HttpStatus.OK, HttpResponse.AUTH_SUCCESS);
+  }
+
+  @Post('/refresh-token')
+  refreshToken(@Req() req: Request, @Res() res: Response): void {
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      console.log('No refresh token found');
+      successResponse(res, HttpStatus.UNAUTHORIZED, HttpResponse.UNAUTHORIZED);
+      return;
+    }
+
+    const user = JwtUtil.verifyRefreshToken(refreshToken);
+
+    if (!user) {
+      console.log('Invalid refresh token');
+      successResponse(res, HttpStatus.UNAUTHORIZED, HttpResponse.UNAUTHORIZED);
+      return;
+    }
+
+    const accessToken = JwtUtil.generateAccessToken(user);
+
+    successResponse(res, HttpStatus.OK, HttpResponse.AUTH_SUCCESS, {
+      accessToken,
+    });
+  }
 }

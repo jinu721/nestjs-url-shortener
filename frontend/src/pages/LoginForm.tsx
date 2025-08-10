@@ -2,11 +2,9 @@ import React, { useState } from "react";
 import { Mail, Lock } from "lucide-react";
 import Input from "../components/Input";
 import Button from "../components/Button";
-
-interface LoginFormProps {
-  onSwitchToRegister: () => void;
-  onLoginSuccess: (email: string) => void;
-}
+import { useNavigate } from "react-router-dom";
+import { UserService } from "../services/user.service";
+import { toast } from "react-toastify";
 
 interface FormData {
   email: string;
@@ -19,10 +17,7 @@ interface FormErrors {
   submit?: string;
 }
 
-const LoginForm: React.FC<LoginFormProps> = ({
-  onSwitchToRegister,
-  onLoginSuccess,
-}) => {
+const LoginForm: React.FC= () => {
   const [formData, setFormData] = useState<FormData>({
     email: "",
     password: "",
@@ -31,6 +26,8 @@ const LoginForm: React.FC<LoginFormProps> = ({
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const router = useNavigate();
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -60,13 +57,12 @@ const LoginForm: React.FC<LoginFormProps> = ({
     setLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise((res) => setTimeout(res, 1000));
-
-      // Simulate successful login
-      onLoginSuccess(formData.email);
+      await UserService.login(formData);
+      toast.success("Login successful");
+      router("/");
     } catch (error: any) {
-      setErrors({ submit: "Login failed. Please try again." });
+      console.log(error);
+      setErrors({ submit: error?.response?.data?.message || "Something Went Wrong" });
     } finally {
       setLoading(false);
     }
@@ -80,6 +76,10 @@ const LoginForm: React.FC<LoginFormProps> = ({
         setErrors((prev) => ({ ...prev, [field]: "" }));
       }
     };
+
+  const handleRegisterTxt = () => {
+    router("/auth/register");
+  };
 
   return (
     <div className="max-w-md mx-auto bg-white p-8 rounded-xl shadow-lg">
@@ -118,7 +118,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
           </div>
         )}
 
-        <Button type="submit" loading={loading} className="w-full" size="lg">
+        <Button loading={loading} className="w-full" size="lg">
           Sign In
         </Button>
       </form>
@@ -128,7 +128,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
           Don’t have an account?{" "}
           <button
             type="button"
-            onClick={onSwitchToRegister}
+            onClick={handleRegisterTxt}
             className="text-blue-600 hover:text-blue-800 font-medium"
           >
             Create one

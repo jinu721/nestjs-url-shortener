@@ -17,4 +17,5 @@ export const HttpResponse = {
   URL_FOUND: 'URL found successfully.',
   URL_NOT_FOUND: 'URL not found.',
   URL_HISTORY_FOUND: 'URL history fetched successfully.',
+  UNAUTHORIZED: 'Unauthorized access',
 };

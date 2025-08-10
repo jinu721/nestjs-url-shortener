@@ -12,4 +12,13 @@ export const CookieUtil = {
       maxAge: 24 * 60 * 60 * 1000,
     });
   },
+  removeRefreshToken: (res: Response): void => {
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: env.NODE_ENV === 'production',
+      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+      domain: env.NODE_ENV === 'production' ? '.jinu.site' : undefined,
+      path: '/',
+    });
+  },
 };

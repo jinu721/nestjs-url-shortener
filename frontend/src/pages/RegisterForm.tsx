@@ -2,33 +2,22 @@ import React, { useState } from "react";
 import { User, Mail, Lock } from "lucide-react";
 import Input from "../components/Input";
 import Button from "../components/Button";
-
-interface RegisterFormProps {
-  onSwitchToLogin: () => void;
-  onRegisterSuccess: (email: string) => void;
-}
-
-interface FormData {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-}
+import { useNavigate } from "react-router-dom";
+import { UserService } from "../services/user.service";
+import { toast } from "react-toastify";
+import type { RegisterPayload } from "../types/auth.types";
 
 interface FormErrors {
-  name?: string;
+  username?: string;
   email?: string;
   password?: string;
   confirmPassword?: string;
   submit?: string;
 }
 
-const RegisterForm: React.FC<RegisterFormProps> = ({
-  onSwitchToLogin,
-  onRegisterSuccess,
-}) => {
-  const [formData, setFormData] = useState<FormData>({
-    name: "",
+const RegisterForm: React.FC = () => {
+  const [formData, setFormData] = useState<RegisterPayload>({
+    username: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -39,11 +28,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const router = useNavigate();
+
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = "Name is required";
+    if (!formData.username.trim()) {
+      newErrors.username = "Name is required";
     }
 
     if (!formData.email.trim()) {
@@ -79,11 +70,14 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     setLoading(true);
 
     try {
-      await new Promise((res) => setTimeout(res, 1000));
-
-      onRegisterSuccess(formData.email);
+      await UserService.register(formData);
+      toast.success("OTP sent to your email");
+      router("/auth/verify-otp");
     } catch (error: any) {
-      setErrors({ submit: "Something went wrong. Please try again." });
+      console.log(error);
+      setErrors({
+        submit: error?.response?.data?.message || "Something Went Wrong",
+      });
     } finally {
       setLoading(false);
     }
@@ -98,6 +92,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
       }
     };
 
+  const handleLoginTxt = () => {
+    router("/auth/login");
+  };
+
   return (
     <div className="max-w-md mx-auto bg-white p-8 rounded-xl shadow-lg">
       <div className="text-center mb-8">
@@ -108,9 +106,9 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
       <form className="space-y-6" onSubmit={handleSubmit}>
         <Input
           label="Full Name"
-          value={formData.name}
-          onChange={handleChange("name")}
-          error={errors.name}
+          value={formData.username}
+          onChange={handleChange("username")}
+          error={errors.username}
           placeholder="Enter your full name"
           icon={User}
         />
@@ -167,7 +165,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           Already have an account?{" "}
           <button
             type="button"
-            onClick={onSwitchToLogin}
+            onClick={handleLoginTxt}
             className="text-blue-600 hover:text-blue-800 font-medium"
           >
             Sign in

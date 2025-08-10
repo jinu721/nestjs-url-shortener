@@ -9,5 +9,11 @@ export interface IUrlService {
     userId: string,
     page: number,
     limit: number,
-  ): Promise<{ data: Url[]; total: number }>;
+    search?: string,
+  ): Promise<{
+    data: Url[];
+    total: number;
+    totalUrlCount: number;
+    totalClickCount: number;
+  }>;
 }

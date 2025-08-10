@@ -32,12 +32,45 @@ export class UrlRepository implements IUrlRepository {
     userId: string,
     page: number,
     limit: number,
+    search?: string,
   ): Promise<{ data: Url[]; total: number }> {
     const skip = (page - 1) * limit;
+
+    const filter: {
+      userId?: string;
+      originalUrl?: { $regex: RegExp };
+    } = { userId };
+
+    if (search) {
+      filter.originalUrl = { $regex: new RegExp(search, 'i') };
+    }
+
     const [data, total] = await Promise.all([
-      this.urlModel.find({ userId }).skip(skip).limit(limit).exec(),
-      this.urlModel.countDocuments({ userId }),
+      await this.urlModel.find(filter).skip(skip).limit(limit).exec(),
+      await this.urlModel.countDocuments(filter),
     ]);
+
     return { data, total };
+  }
+  async incrementClickCount(urlId: string): Promise<void> {
+    console.log('urlId', urlId);
+    await this.urlModel.updateOne({ _id: urlId }, { $inc: { clicks: 1 } });
+  }
+
+  async getTotalClickCount(userId: string): Promise<number> {
+    const total = await this.urlModel
+      .aggregate([
+        { $match: { userId } },
+        {
+          $group: { _id: '$userId', totalClickCount: { $sum: '$clicks' } },
+        },
+      ])
+      .exec();
+    return total[0]?.totalClickCount || 0;
+  }
+
+  async getTotalUrlCount(userId: string): Promise<number> {
+    const total = await this.urlModel.countDocuments({ userId });
+    return total;
   }
 }

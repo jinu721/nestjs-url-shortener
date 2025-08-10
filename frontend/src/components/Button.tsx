@@ -21,6 +21,7 @@ const Button: React.FC<ButtonProps> = ({
   className = "",
   ...props
 }) => {
+  
   const baseClasses =
     "font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 inline-flex items-center justify-center";
 
@@ -43,12 +44,12 @@ const Button: React.FC<ButtonProps> = ({
 
   return (
     <button
+      {...props}
       className={clsx(baseClasses, variants[variant], sizes[size], className, {
         "cursor-not-allowed": disabled || loading,
         "cursor-pointer": !(disabled || loading),
       })}
       disabled={disabled || loading}
-      {...props}
     >
       {loading ? (
         <span className="flex items-center justify-center">
