@@ -8,5 +8,5 @@ export interface IUserController {
   verifyOtp(body: any, res: Response): Promise<void>;
   resendOtp(body: any, res: Response): Promise<void>;
   // logout(request: Request, res: Response): Promise<void>;
-  // getMe(request: Request, res: Response): Promise<any>;
+  getMe(request: Request, res: Response): Promise<any>;
 }

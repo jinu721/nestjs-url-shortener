@@ -23,9 +23,11 @@ export class JwtAuthGuard implements CanActivate {
 
     try {
       const decoded = JwtUtil.verifyAccessToken(token);
+      console.log('decoded', decoded);
       request['user'] = decoded;
       return true;
     } catch (error) {
+      console.log(error);
       throw new UnauthorizedException('Token expired or invalid');
     }
   }

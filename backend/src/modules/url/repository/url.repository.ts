@@ -14,7 +14,7 @@ export class UrlRepository implements IUrlRepository {
   ): Promise<Url> {
     return this.urlModel.create({
       originalUrl,
-      shortUrl: `${env.BASE_URL}/url/${shortCode}`,
+      shortUrl: `${env.BASE_URL}/${shortCode}`,
       shortCode,
       userId,
     });

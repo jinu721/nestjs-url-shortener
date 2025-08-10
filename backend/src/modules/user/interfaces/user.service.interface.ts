@@ -10,4 +10,5 @@ export interface IUserService {
   ): Promise<{ accessToken: string; refreshToken: string }>;
   verifyOtp(email: string, otp: string): Promise<void>;
   resendOtp(email: string): Promise<void>;
+  getUser(id: string): Promise<any>;
 }

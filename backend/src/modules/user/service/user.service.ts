@@ -133,4 +133,7 @@ export class UserService implements IUserService {
 
     this.cacheManager.set(email, { ...userData, otp }, 300000);
   }
+  async getUser(id: string): Promise<any> {
+    return await this.userRepository.getUserById(id);
+  }
 }

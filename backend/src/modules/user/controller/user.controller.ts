@@ -1,4 +1,13 @@
-import { Body, Controller, HttpStatus, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { IUserController } from '../interfaces/user.controller.interface';
 import type { Request, Response } from 'express';
 import { RegisterDTO } from '../dtos/register.dto';
@@ -10,6 +19,8 @@ import { ResendOtpDto } from '../dtos/reset-otp.dto';
 import { CookieUtil } from 'src/common/utils/cookie.util';
 import { LoginDto } from '../dtos/login.dto';
 import { JwtUtil } from 'src/common/utils/jwt.util';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { toPublicUser } from '../dtos/user.dto';
 
 @Controller('users')
 export class UserController implements IUserController {
@@ -81,5 +92,18 @@ export class UserController implements IUserController {
     successResponse(res, HttpStatus.OK, HttpResponse.AUTH_SUCCESS, {
       accessToken,
     });
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getMe(@Req() request: Request, @Res() res: Response): Promise<any> {
+    const user = request['user'];
+    const userData = await this.userService.getUser(user.userId);
+    successResponse(
+      res,
+      HttpStatus.OK,
+      HttpResponse.USER_FOUND,
+      toPublicUser(userData),
+    );
   }
 }

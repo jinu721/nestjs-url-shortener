@@ -1,95 +1,112 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Link2,
-  Copy,
-  ExternalLink,
   Clock,
   BarChart3,
   LogOut,
   User,
   Plus,
   Search,
-  Calendar,
-  TrendingUp,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
+  Menu,
+  X,
 } from "lucide-react";
+import Pagination from "../components/Pagination";
+import ShortUrlBox from "../components/ShortUrlBox";
+import UrlDetails from "../components/UrlDetails";
+import UrlHistoryList from "../components/UrlHistoryList";
+import { toast } from "react-toastify";
 import { UrlService } from "../services/url.service";
+import { UserService } from "../services/user.service";
 import { useNavigate } from "react-router-dom";
-import type { UrlHistory } from "../types/url.types";
 
-const mockUser = {
-  name: "Jiny",
-  email: "jinu86831@gmail.com",
-};
+interface UserType {
+  username: string;
+  email: string;
+}
 
-const HomePage:React.FC = () => {
-  const [originalUrl, setOriginalUrl] = useState("");
-  const [shortUrl, setShortUrl] = useState("");
-  const [urlHistory, setUrlHistory] = useState([]);
+interface UrlHistoryItem {
+  id: string;
+  originalUrl: string;
+  shortUrl: string;
+  createdAt: string;
+  clickCount: number;
+}
+
+const HomePage: React.FC = () => {
+  const [originalUrl, setOriginalUrl] = useState<string>("");
+  const [shortUrl, setShortUrl] = useState<string>("");
+  const [user, setUser] = useState<UserType | null>(null);
+  const [urlHistory, setUrlHistory] = useState<UrlHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-  const [selectedUrl, setSelectedUrl] = useState(null);
+  const [selectedUrl, setSelectedUrl] = useState<UrlHistoryItem | null>(null);
   const [copySuccess, setCopySuccess] = useState("");
   const [totalUrls, setTotalUrls] = useState(0);
   const [totalClicks, setTotalClicks] = useState(0);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
-  const limit = 10;
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const limit = 3;
 
   const router = useNavigate();
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const userData = await UserService.getMe();
+        setUser(userData);
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || "Error Fetching User");
+      }
+    };
+    fetchUser();
+  }, []);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      setSearchLoading(true);
+      try {
+        const historyData = await UrlService.getUrlHistory(
+          page,
+          limit,
+          debouncedSearchTerm
+        );
+        setUrlHistory(historyData.data);
+        setTotalClicks(historyData.totalClickCount);
+        setTotalUrls(historyData.totalUrlCount);
+        setTotalCount(historyData.total);
+        setTotalPages(Math.ceil(historyData.total / limit));
+      } catch (error) {
+        console.error(error);
+        toast.error("Error fetching URL history");
+      } finally {
+        setSearchLoading(false);
+      }
+    };
+    fetchHistory();
+  }, [page, limit, debouncedSearchTerm]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
       setPage(1);
-    }, 500); 
+    }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const fetchUrlHistory = useCallback(async (currentPage = 1, search = "") => {
-    try {
-      setSearchLoading(true);
-      const data = await UrlService.getUrlHistory(currentPage, limit, search);
-      
-      setUrlHistory(data.data || []);
-      setTotalClicks(data.totalClickCount || 0);
-      setTotalUrls(data.totalUrlCount || 0);
-      setTotalPages(data.totalPages || 0);
-      setTotalCount(data.totalCount || 0);
-    } catch (error) {
-      console.error("Error fetching URL history:", error);
-    } finally {
-      setSearchLoading(false);
-    }
-  }, [limit]);
-
-  useEffect(() => {
-    fetchUrlHistory(page, debouncedSearchTerm);
-  }, [page, debouncedSearchTerm, fetchUrlHistory]);
-
   const handleShortenUrl = async () => {
     if (!originalUrl.trim()) return;
-
     setLoading(true);
-
     try {
-      const newUrl = await UrlService.createUrl({
-        originalUrl,
-      });
-      
-      await fetchUrlHistory(1, debouncedSearchTerm);
-      setPage(1);
-      
-      setShortUrl(newUrl.shortUrl);
+      const shortenedUrl = await UrlService.createUrl({ originalUrl });
+      setShortUrl(shortenedUrl.shortUrl);
       setOriginalUrl("");
-      setTotalUrls((prevCount) => prevCount + 1);
-    } catch (error) {
-      console.error("Error shortening URL:", error);
+      setTotalUrls((prev) => prev + 1);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Failed to shorten URL");
     } finally {
       setLoading(false);
     }
@@ -100,8 +117,8 @@ const HomePage:React.FC = () => {
       await navigator.clipboard.writeText(text);
       setCopySuccess(text);
       setTimeout(() => setCopySuccess(""), 2000);
-    } catch (error) {
-      console.error("Failed to copy:", error);
+    } catch {
+      toast.error("Failed to copy");
     }
   };
 
@@ -114,13 +131,18 @@ const HomePage:React.FC = () => {
     });
   };
 
-  const truncateUrl = (url: string, maxLength: number = 40) => {
+  const truncateUrl = (url: string, maxLength = 40) => {
     return url.length > maxLength ? url.substring(0, maxLength) + "..." : url;
   };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    router("/auth/login");
+  const handleLogout = async () => {
+    try {
+      const status = await UserService.logout();
+      if (status) router("/auth/login");
+    } catch (error) {
+      console.log(error);
+      toast.error("Error Logging Out");
+    }
   };
 
   const handlePageChange = (newPage: number) => {
@@ -129,208 +151,108 @@ const HomePage:React.FC = () => {
     }
   };
 
-  const handleFirstPage = () => handlePageChange(1);
-  const handlePreviousPage = () => handlePageChange(page - 1);
-  const handleNextPage = () => handlePageChange(page + 1);
-  const handleLastPage = () => handlePageChange(totalPages);
-
-  const getPageNumbers = () => {
-    const delta = 2; 
-    const range = [];
-    const rangeWithDots = [];
-
-    for (let i = Math.max(2, page - delta); i <= Math.min(totalPages - 1, page + delta); i++) {
-      range.push(i);
-    }
-
-    if (page - delta > 2) {
-      rangeWithDots.push(1, '...');
-    } else {
-      rangeWithDots.push(1);
-    }
-
-    rangeWithDots.push(...range);
-
-    if (page + delta < totalPages - 1) {
-      rangeWithDots.push('...', totalPages);
-    } else if (totalPages > 1) {
-      rangeWithDots.push(totalPages);
-    }
-
-    return rangeWithDots;
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <div className="w-80 bg-white shadow-lg flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex relative">
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <div
+        className={`w-80 bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out z-50
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        lg:translate-x-0 lg:relative lg:z-auto
+        fixed lg:static inset-y-0 left-0`}
+      >
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="lg:hidden absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
               <User className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">{mockUser.name}</h3>
-              <p className="text-sm text-gray-600">{mockUser.email}</p>
+              <h3 className="font-bold text-gray-900">
+                {user ? user.username : "User"}
+              </h3>
+              <p className="text-sm text-gray-600">
+                {user ? user.email : "Email"}
+              </p>
             </div>
           </div>
         </div>
 
         <div className="p-6 border-b border-gray-200">
           <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
-            <BarChart3 className="w-4 h-4 mr-2" />
+            <BarChart3 className="w-4 h-4 mr-2 text-blue-600" />
             Quick Stats
           </h4>
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-blue-50 p-3 rounded-lg">
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-xl shadow-sm border border-blue-200">
               <p className="text-2xl font-bold text-blue-600">{totalUrls}</p>
-              <p className="text-xs text-blue-800">Total URLs</p>
+              <p className="text-xs text-blue-800 font-medium">Total URLs</p>
             </div>
-            <div className="bg-green-50 p-3 rounded-lg">
+            <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-xl shadow-sm border border-green-200">
               <p className="text-2xl font-bold text-green-600">{totalClicks}</p>
-              <p className="text-xs text-green-800">Total Clicks</p>
+              <p className="text-xs text-green-800 font-medium">Total Clicks</p>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="p-6 pb-4">
-            <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
-              <Clock className="w-4 h-4 mr-2" />
-              URL History
-              {searchLoading && (
-                <div className="ml-2 w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              )}
-            </h4>
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search URLs..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-              />
-            </div>
-            
-            {/* Results count */}
-            {debouncedSearchTerm && (
-              <p className="text-xs text-gray-500 mt-2">
-                {totalCount} result{totalCount !== 1 ? 's' : ''} found
-              </p>
+        <div className="p-6 pb-4">
+          <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
+            <Clock className="w-4 h-4 mr-2 text-blue-600" />
+            URL History
+            {searchLoading && (
+              <div className="ml-2 w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
             )}
+          </h4>
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-3.5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search URLs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm shadow-sm"
+            />
           </div>
-
-          <div className="flex-1 overflow-y-auto px-6">
-            {urlHistory.length === 0 ? (
-              <div className="text-center py-8">
-                {searchLoading ? (
-                  <div className="flex items-center justify-center">
-                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2" />
-                    <span className="text-gray-500">Searching...</span>
-                  </div>
-                ) : (
-                  <p className="text-gray-500">
-                    {debouncedSearchTerm ? 'No URLs found matching your search' : 'No URLs found'}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {urlHistory.map((url: UrlHistory) => (
-                  <div
-                    key={url.id}
-                    className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 cursor-pointer transition-colors"
-                    onClick={() => setSelectedUrl(url)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {truncateUrl(url.originalUrl)}
-                        </p>
-                        <p className="text-xs text-blue-600 mt-1">
-                          {url.shortCode}
-                        </p>
-                        <div className="flex items-center justify-between mt-2">
-                          <p className="text-xs text-gray-500 flex items-center">
-                            <Calendar className="w-3 h-3 mr-1" />
-                            {formatDate(url.createdAt)}
-                          </p>
-                          <p className="text-xs text-gray-600 flex items-center">
-                            <TrendingUp className="w-3 h-3 mr-1" />
-                            {url.clicks} clicks
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {totalPages > 1 && (
-            <div className="p-6 border-t border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-700">
-                  Page {page} of {totalPages} ({totalCount} total)
-                </div>
-                <div className="flex items-center space-x-1">
-                  <button
-                    onClick={handleFirstPage}
-                    disabled={page === 1}
-                    className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronsLeft className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={handlePreviousPage}
-                    disabled={page === 1}
-                    className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  
-                  {getPageNumbers().map((pageNum, index) => (
-                    <button
-                      key={index}
-                      onClick={() => typeof pageNum === 'number' && handlePageChange(pageNum)}
-                      disabled={pageNum === '...'}
-                      className={`px-2 py-1 text-sm rounded ${
-                        pageNum === page
-                          ? 'bg-blue-500 text-white'
-                          : pageNum === '...'
-                          ? 'cursor-default'
-                          : 'hover:bg-gray-100'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  ))}
-                  
-                  <button
-                    onClick={handleNextPage}
-                    disabled={page === totalPages}
-                    className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={handleLastPage}
-                    disabled={page === totalPages}
-                    className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronsRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
+          {debouncedSearchTerm && (
+            <p className="text-xs text-gray-500 mt-2 px-2">
+              {totalCount} result{totalCount !== 1 ? "s" : ""} found
+            </p>
           )}
         </div>
 
+        <UrlHistoryList
+          urlHistory={urlHistory}
+          searchLoading={searchLoading}
+          debouncedSearchTerm={debouncedSearchTerm}
+          setSelectedUrl={setSelectedUrl}
+          truncateUrl={truncateUrl}
+          formatDate={formatDate}
+        />
+
         <div className="p-6 border-t border-gray-200">
-          <button 
-            onClick={handleLogout} 
-            className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            onPageChange={handlePageChange}
+          />
+        </div>
+
+        <div className="p-6 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl border border-red-200 hover:border-red-300"
           >
             <LogOut className="w-4 h-4 mr-2" />
             Logout
@@ -338,22 +260,30 @@ const HomePage:React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col">
-        <header className="bg-white shadow-sm border-b border-gray-200 px-8 py-6">
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-            <Link2 className="w-8 h-8 mr-3 text-blue-600" />
-            URL Shortener
-          </h1>
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden mr-3 p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <Link2 className="w-6 h-6 sm:w-8 sm:h-8 mr-2 sm:mr-3 text-blue-600" />
+              <span className="hidden sm:inline">URL Shortener</span>
+              <span className="sm:hidden">Shortener</span>
+            </h1>
+          </div>
         </header>
 
-        <main className="flex-1 p-8">
-          <div className="max-w-2xl mx-auto mb-8">
-            <div className="bg-white rounded-xl shadow-lg p-8">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
-                <Plus className="w-5 h-5 mr-2" />
+        <main className="flex-1 p-4 sm:p-8">
+          <div className="max-w-4xl mx-auto mb-8">
+            <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 border border-gray-100">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                <Plus className="w-5 h-5 mr-2 text-blue-600" />
                 Shorten a new URL
               </h2>
-
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -364,150 +294,45 @@ const HomePage:React.FC = () => {
                     value={originalUrl}
                     onChange={(e) => setOriginalUrl(e.target.value)}
                     placeholder="https://example.com/very-long-url"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
                     onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        handleShortenUrl();
-                      }
+                      if (e.key === "Enter") handleShortenUrl();
                     }}
                   />
                 </div>
-
                 <button
                   onClick={handleShortenUrl}
                   disabled={loading || !originalUrl.trim()}
-                  className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
-                  {loading ? "Shortening..." : "Shorten URL"}
+                  {loading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Shortening...
+                    </div>
+                  ) : (
+                    "Shorten URL"
+                  )}
                 </button>
               </div>
-
               {shortUrl && (
-                <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <h3 className="font-medium text-green-900 mb-2">
-                    Your shortened URL:
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={shortUrl}
-                      readOnly
-                      className="flex-1 px-3 py-2 bg-white border border-green-300 rounded text-sm"
-                    />
-                    <button
-                      onClick={() => copyToClipboard(shortUrl)}
-                      className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                    <a
-                      href={shortUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  </div>
-                  {copySuccess === shortUrl && (
-                    <p className="text-green-600 text-sm mt-2">
-                      Copied to clipboard!
-                    </p>
-                  )}
-                </div>
+                <ShortUrlBox
+                  shortUrl={shortUrl}
+                  copyToClipboard={copyToClipboard}
+                  copySuccess={copySuccess}
+                />
               )}
             </div>
           </div>
 
           {selectedUrl && (
-            <div className="max-w-2xl mx-auto">
-              <div className="bg-white rounded-xl shadow-lg p-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  URL Details
-                </h3>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Original URL
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        value={selectedUrl.originalUrl}
-                        readOnly
-                        className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded text-sm"
-                      />
-                      <button
-                        onClick={() => copyToClipboard(selectedUrl.originalUrl)}
-                        className="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Short URL
-                    </label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="text"
-                        value={selectedUrl.shortUrl}
-                        readOnly
-                        className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded text-sm"
-                      />
-                      <button
-                        onClick={() => copyToClipboard(selectedUrl.shortUrl)}
-                        className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
-                      <a
-                        href={selectedUrl.shortUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    </div>
-                    {copySuccess === selectedUrl.shortUrl && (
-                      <p className="text-blue-600 text-sm mt-1">
-                        Copied to clipboard!
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Total Clicks
-                      </label>
-                      <p className="text-2xl font-bold text-green-600">
-                        {selectedUrl.clicks}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Created
-                      </label>
-                      <p className="text-sm text-gray-600">
-                        {formatDate(selectedUrl.createdAt)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setSelectedUrl(null)}
-                  className="mt-6 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
-                >
-                  Close Details
-                </button>
-              </div>
-            </div>
+            <UrlDetails
+              selectedUrl={selectedUrl}
+              copySuccess={copySuccess}
+              copyToClipboard={copyToClipboard}
+              formatDate={formatDate}
+              setSelectedUrl={setSelectedUrl}
+            />
           )}
         </main>
       </div>

@@ -5,7 +5,7 @@ export const UrlService = {
   createUrl: async (formData: CreateUrlPayload) => {
     try {
       const response = await axiosInstance.post("/", formData);
-      return response?.data?.data?.url;
+      return response?.data?.data;
     } catch (error) {
       console.log(error);
       throw new Error(error?.response?.data?.message || "Something Went Wrong");

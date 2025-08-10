@@ -30,7 +30,8 @@ export class UrlController implements IUrlController {
   ): Promise<void> {
     const user = req['user'];
     const url = await this.urlService.createShortUrl(dto, user.userId);
-    successResponse(res, HttpStatus.OK, HttpResponse.URL_CREATED, { url });
+    console.log('url', url);
+    successResponse(res, HttpStatus.OK, HttpResponse.URL_CREATED, url);
   }
 
   @UseGuards(JwtAuthGuard)
