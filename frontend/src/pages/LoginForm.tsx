@@ -62,7 +62,7 @@ const LoginForm: React.FC= () => {
       router("/");
     } catch (error: any) {
       console.log(error);
-      setErrors({ submit: error?.response?.data?.message || "Something Went Wrong" });
+      setErrors({ submit: error?.response?.data?.message || "Invalid Credentials" });
     } finally {
       setLoading(false);
     }
