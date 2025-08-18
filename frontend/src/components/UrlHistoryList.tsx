@@ -52,7 +52,7 @@ const UrlHistoryList: React.FC<UrlHistoryListProps> = ({
         <div className="space-y-3">
           {urlHistory.map((url) => (
             <div
-              key={url._id}
+              key={url.id}
               className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-4 hover:from-blue-50 hover:to-purple-50 cursor-pointer transition-all duration-300 border border-gray-100 hover:border-blue-200 hover:shadow-md group"
               onClick={() => setSelectedUrl(url)}
             >
@@ -84,4 +84,5 @@ const UrlHistoryList: React.FC<UrlHistoryListProps> = ({
   );
 };
 
-export default UrlHistoryList;
+export default React.memo(UrlHistoryList);
+

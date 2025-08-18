@@ -115,4 +115,5 @@ const UrlDetails: React.FC<UrlDetailsProps> = ({
   );
 };
 
-export default UrlDetails;
+export default React.memo(UrlDetails);
+

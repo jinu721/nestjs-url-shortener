@@ -49,4 +49,5 @@ const ShortUrlBox: React.FC<ShortUrlBoxProps> = ({
   );
 };
 
-export default ShortUrlBox;
+export default React.memo(ShortUrlBox);
+

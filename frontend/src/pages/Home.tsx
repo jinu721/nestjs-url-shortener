@@ -1,23 +1,13 @@
-import React, { useEffect, useState } from "react";
-import {
-  Link2,
-  Clock,
-  BarChart3,
-  LogOut,
-  User,
-  Plus,
-  Search,
-  Menu,
-  X,
-} from "lucide-react";
-import Pagination from "../components/Pagination";
-import ShortUrlBox from "../components/ShortUrlBox";
-import UrlDetails from "../components/UrlDetails";
-import UrlHistoryList from "../components/UrlHistoryList";
+import React, { useEffect, useState, useCallback } from "react";
 import { toast } from "react-toastify";
 import { UrlService } from "../services/url.service";
 import { UserService } from "../services/user.service";
 import { useNavigate } from "react-router-dom";
+import { X, User, BarChart3, Clock, Search, LogOut, Menu, Link2, Plus } from "lucide-react";
+import UrlHistoryList from "../components/UrlHistoryList";
+import Pagination from "../components/Pagination";
+import ShortUrlBox from "../components/ShortUrlBox";
+import UrlDetails from "../components/UrlDetails";
 
 interface UserType {
   username: string;
@@ -57,7 +47,7 @@ const HomePage: React.FC = () => {
     const fetchUser = async () => {
       try {
         const userData = await UserService.getMe();
-        setUser(userData);
+        setUser(userData as any);
       } catch (error: any) {
         toast.error(error?.response?.data?.message || "Error Fetching User");
       }
@@ -104,6 +94,7 @@ const HomePage: React.FC = () => {
       const shortenedUrl = await UrlService.createUrl({ originalUrl });
       setShortUrl(shortenedUrl.shortUrl);
       setOriginalUrl("");
+      setUrlHistory((prev) => [shortenedUrl, ...prev]);
       setTotalUrls((prev) => prev + 1);
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Failed to shorten URL");
@@ -112,7 +103,7 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = useCallback(async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopySuccess(text);
@@ -120,21 +111,20 @@ const HomePage: React.FC = () => {
     } catch {
       toast.error("Failed to copy");
     }
-  };
+  }, []);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
+  }, []);
 
-  const truncateUrl = (url: string, maxLength = 40) => {
+  const truncateUrl = useCallback((url: string, maxLength = 40) => {
     return url.length > maxLength ? url.substring(0, maxLength) + "..." : url;
-  };
-
+  }, []);
   const handleLogout = async () => {
     try {
       const status = await UserService.logout();
@@ -145,11 +135,14 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setPage(newPage);
-    }
-  };
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      if (newPage >= 1 && newPage <= totalPages) {
+        setPage(newPage);
+      }
+    },
+    [totalPages]
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex relative">

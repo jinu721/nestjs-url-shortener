@@ -3,7 +3,6 @@ import { IUrlService } from '../interfaces/url.service.interface';
 import type { IUrlRepository } from '../interfaces/url.repository.interface';
 import { CreateUrlDto } from '../dtos/create-url.dto';
 import { Url } from 'src/schema/url.schema';
-import * as shortid from 'shortid';
 import { HttpResponse } from 'src/common/constants/response-msg.constants';
 
 @Injectable()
@@ -13,7 +12,8 @@ export class UrlService implements IUrlService {
   ) {}
 
   async createShortUrl(dto: CreateUrlDto, userId: string): Promise<Url> {
-    const shortCode = shortid.generate();
+    const { nanoid } = await import('nanoid');
+    const shortCode = nanoid(8);
     return this.urlRepo.createUrl(dto.originalUrl, shortCode, userId);
   }
 

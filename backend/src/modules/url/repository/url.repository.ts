@@ -3,16 +3,22 @@ import { Url, UrlDocument } from 'src/schema/url.schema';
 import { Model } from 'mongoose';
 import { IUrlRepository } from '../interfaces/url.repository.interface';
 import { env } from 'src/common/config/env.config';
+import { BaseRepository } from 'src/modules/base/repository/base.repository';
 
-export class UrlRepository implements IUrlRepository {
-  constructor(@InjectModel(Url.name) private urlModel: Model<UrlDocument>) {}
+export class UrlRepository
+  extends BaseRepository<UrlDocument>
+  implements IUrlRepository
+{
+  constructor(@InjectModel(Url.name) private urlModel: Model<UrlDocument>) {
+    super(urlModel);
+  }
 
   async createUrl(
     originalUrl: string,
     shortCode: string,
     userId: string,
   ): Promise<Url> {
-    return this.urlModel.create({
+    return this.create({
       originalUrl,
       shortUrl: `${env.BASE_URL}/${shortCode}`,
       shortCode,
@@ -21,11 +27,11 @@ export class UrlRepository implements IUrlRepository {
   }
 
   async findByShortCode(shortCode: string): Promise<Url | null> {
-    return this.urlModel.findOne({ shortCode });
+    return this.findOne({ shortCode });
   }
 
   async findByUserId(userId: string): Promise<Url[]> {
-    return this.urlModel.find({ userId });
+    return this.findAll({ userId });
   }
 
   async findAllByUserId(
@@ -46,7 +52,12 @@ export class UrlRepository implements IUrlRepository {
     }
 
     const [data, total] = await Promise.all([
-      await this.urlModel.find(filter).skip(skip).limit(limit).exec(),
+      await this.urlModel
+        .find(filter)
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .exec(),
       await this.urlModel.countDocuments(filter),
     ]);
 
@@ -58,19 +69,19 @@ export class UrlRepository implements IUrlRepository {
   }
 
   async getTotalClickCount(userId: string): Promise<number> {
-    const total = await this.urlModel
-      .aggregate([
-        { $match: { userId } },
-        {
-          $group: { _id: '$userId', totalClickCount: { $sum: '$clicks' } },
-        },
-      ])
-      .exec();
+    const total = await this.aggregate<{
+      _id: string;
+      totalClickCount: number;
+    }>([
+      { $match: { userId } },
+      { $group: { _id: '$userId', totalClickCount: { $sum: '$clicks' } } },
+    ]);
+
     return total[0]?.totalClickCount || 0;
   }
 
   async getTotalUrlCount(userId: string): Promise<number> {
-    const total = await this.urlModel.countDocuments({ userId });
+    const total = await this.count({ userId });
     return total;
   }
 }
